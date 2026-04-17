@@ -110,11 +110,12 @@ data/
 
 #### Step 2: Download VLN Episodes
 
-| Dataset | Link |
-|:---:|:---:|
-| R2R VLN-CE Episodes | [Google Drive](https://drive.google.com/file/d/1fo8F4NKgZDH-bPSdVU3cONAkt5EW-tyr/view) |
-| RxR VLN-CE Episodes | [Google Drive](https://drive.google.com/file/d/145xzLjxBaNTbVgBfQ8e9EsBAV8W-SM0t/view) |
-| ScaleVLN Subset | [HuggingFace](https://huggingface.co/datasets/cywan/StreamVLN-Trajectory-Data/tree/main/ScaleVLN) |
+| Dataset | Link | Remark |
+|:---:|:---:|:---:|
+| R2R VLN-CE Episodes | [Google Drive](https://drive.google.com/file/d/1fo8F4NKgZDH-bPSdVU3cONAkt5EW-tyr/view) | N/A |
+| ~~RxR VLN-CE Episodes~~ | [~~Google Drive~~](https://drive.google.com/file/d/145xzLjxBaNTbVgBfQ8e9EsBAV8W-SM0t/view) | N/A |
+| RxR VLN-CE Episodes | [HuggingFace](https://huggingface.co/datasets/cywan/StreamVLN-Trajectory-Data/tree/c91703117f39f1566497b003322ac0399f916554/RxR) | action space aligned with R2R by StreamVLN |
+| ScaleVLN Subset | [HuggingFace](https://huggingface.co/datasets/cywan/StreamVLN-Trajectory-Data/tree/main/ScaleVLN) | N/A |
 
 #### Step 3: Data Processing (Training Only)
 

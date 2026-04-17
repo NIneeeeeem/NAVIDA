@@ -69,6 +69,27 @@ def process_rxr(output_path = 'data/sub_dataset/rxr.jsonl'):
         new_data.append(new_item)
     json2file(new_data, output_path)
 
+
+# streamvln
+def process_streamvlnrxr(output_path = 'data/sub_dataset/streamvln_rxr.jsonl'):
+    new_data = []
+    with open('data/streamvln/RxR/annotations.json','r') as f:
+        data = json.load(f)
+    for item in tqdm(data):
+        video_id = item['video'].split('_')[-1]
+        ## BUG `episode_id` here is just a placehold, it doesn't correspond to the true episode_id
+        episode_id = item['id']
+        assert episode_id == int(video_id), f"{episode_id} != {int(video_id)}"
+        new_item = {
+            'episode_id': episode_id,
+            'video_id': item['video']+'/rgb',
+            'instruction': item['instructions'], ## list, may have multiple instructions
+            'actions': item['actions'][1:] + [0]
+        }
+        new_data.append(new_item)
+    json2file(new_data, output_path)
+
+
 # r2r envdrop
 def process_envdrop(output_path = 'data/sub_dataset/envdrop.jsonl'):
     new_data = []
@@ -126,6 +147,7 @@ if __name__ == "__main__":
     dataname2func = {
         'r2r': process_r2r,
         'rxr': process_rxr,
+        'streamvln_rxr': process_streamvlnrxr,
         'envdrop': process_envdrop,
         'scalevln': process_scalevln
     }

@@ -60,6 +60,8 @@ def combine(action1,action2):
 def spilt_method(x):
     return x.split("_")[1].split(".")[0]
 
+def spilt_method_2(x):
+    return x.split(".")[0]
 
 
 config = {
@@ -72,6 +74,12 @@ config = {
         'image_path': 'data/images/rxr',
         'annotation_path': 'data/sub_dataset/rxr.jsonl',
         'split_method': spilt_method,
+    },
+    'streamvln_rxr': {
+        'image_path': 'data/streamvln/RxR',
+        'annotation_path': 'data/sub_dataset/streamvln_rxr.jsonl',
+        'split_method': spilt_method_2,
+        'sub_image_path':' rgb',
     },
     'envdrop': {
         'image_path': 'data/images/envdrop',
@@ -106,83 +114,92 @@ def process_single_type(selected_subset_list, system_prompt, prompt_template, ta
         for episode_item in annotation:
             episode_id = episode_item['episode_id']
             video_id = episode_item['video_id']
-            instruction = episode_item['instruction']
             actions = episode_item['actions']
             assert actions[-1] == 0
 
-            episode_image_path = os.path.join(image_path, str(video_id))
-            if sub_image_path is not None:
-                episode_image_path = os.path.join(episode_image_path, sub_image_path)
-            episode_image_list = os.listdir(episode_image_path)
-            episode_image_list = sorted(episode_image_list, key=lambda x: int(split_method(x)))
-            episode_image_list = [episode_image_path+'/'+image for image in episode_image_list]
-            if len(episode_image_list) != len(actions) + 1:
-                episode_image_list.append(episode_image_list[-1])
-            assert len(episode_image_list) == len(actions) + 1
+            if isinstance(episode_item['instruction'], list):
+                instruction_list = episode_item['instruction']
+            else:
+                instruction_list = [episode_item['instruction']]
+            if task_type == "idm":
+                instruction_list = instruction_list[:1]
+            
+            for instruction in instruction_list:
 
-            tmp_data = {
-                "system": system_prompt,
-                "conversations": [],
-                "action_history":[],
-                "episode_id":str(episode_id),
-                # 'idm_input': [],
-                "task type": task_type,
-            }
-            if task_type == "vln":
-                formated_instruction = prompt_template.format(instruction)
-                tmp_data["conversations"].append({"from": "user", "value": formated_instruction,"image":[episode_image_list[0]]})
-                tmp_data["conversations"].append({"from": "assistant", "value": action_id_to_str(actions[0])}) 
-                last_action = actions[0]
-                pending_rgb_list = []
-                for i in range(1, len(actions)):
-                    prob = random.random()
-                    if prob <= 0.7 and actions[i] == last_action and combine(tmp_data["conversations"][-1]['value'],action_id_to_str(last_action)) is not None:
-                        tmp_data["conversations"][-1]['value'] = combine(tmp_data["conversations"][-1]['value'],action_id_to_str(last_action))
-                        pending_rgb_list.append(episode_image_list[i])
-                    else:
-                        count = tmp_data["conversations"][-1]['value'].count(',')
-                        if count < 2:
-                            tmp_data["conversations"][-1]['value'] += ', ' + action_id_to_str(actions[i])
+                episode_image_path = os.path.join(image_path, str(video_id))
+                if sub_image_path is not None:
+                    episode_image_path = os.path.join(episode_image_path, sub_image_path)
+                episode_image_list = os.listdir(episode_image_path)
+                episode_image_list = sorted(episode_image_list, key=lambda x: int(split_method(x)))
+                episode_image_list = [episode_image_path+'/'+image for image in episode_image_list]
+                if len(episode_image_list) != len(actions) + 1:
+                    episode_image_list.append(episode_image_list[-1])
+                assert len(episode_image_list) == len(actions) + 1
+
+                tmp_data = {
+                    "system": system_prompt,
+                    "conversations": [],
+                    "action_history":[],
+                    "episode_id":str(episode_id),
+                    # 'idm_input': [],
+                    "task type": task_type,
+                }
+                if task_type == "vln":
+                    formated_instruction = prompt_template.format(instruction)
+                    tmp_data["conversations"].append({"from": "user", "value": formated_instruction,"image":[episode_image_list[0]]})
+                    tmp_data["conversations"].append({"from": "assistant", "value": action_id_to_str(actions[0])}) 
+                    last_action = actions[0]
+                    pending_rgb_list = []
+                    for i in range(1, len(actions)):
+                        prob = random.random()
+                        if prob <= 0.7 and actions[i] == last_action and combine(tmp_data["conversations"][-1]['value'],action_id_to_str(last_action)) is not None:
+                            tmp_data["conversations"][-1]['value'] = combine(tmp_data["conversations"][-1]['value'],action_id_to_str(last_action))
                             pending_rgb_list.append(episode_image_list[i])
                         else:
-                            # tmp_data['idm_input'] = [tmp_data["conversations"][0]['image'][-1], episode_image_list[i]]
-                            data2save.append(copy.deepcopy(tmp_data))
-                            tmp_data["action_history"].append(tmp_data["conversations"][1]['value'])
-                            while len(pending_rgb_list)!= 0:
-                                item = pending_rgb_list.pop(0)
-                                tmp_data["conversations"][0]['image'].append(item)
-                            tmp_data["conversations"][0]['image'].append(episode_image_list[i])
-                            # while len(tmp_data["conversations"][0]['image']) > max_images:
-                            #     tmp_data["conversations"][0]['image'] = tmp_data["conversations"][0]['image'][1:]
-                            tmp_data["conversations"][1]['value'] = action_id_to_str(actions[i])
-                            # assert len(conversation["action_history"]) == len(conversation["conversations"][0]['image']) - 1
-                    last_action = actions[i]
-                # tmp_data['idm_input'] = [tmp_data["conversations"][0]['image'][-1], episode_image_list[i+1]]
-                data2save.append(copy.deepcopy(tmp_data))
-            elif task_type == "idm":
-                formated_instruction = prompt_template
-                tmp_data["conversations"].append({"from": "user", "value": formated_instruction,"image":[episode_image_list[0], episode_image_list[1]]})
-                tmp_data["conversations"].append({"from": "assistant", "value": action_id_to_str(actions[0])}) 
-                last_action = actions[0]
-                for i in range(1, len(actions)):
-                    prob = random.random()
-                    if prob <= 0.7 and actions[i] == last_action and combine(tmp_data["conversations"][-1]['value'],action_id_to_str(last_action)) is not None:
-                        tmp_data["conversations"][-1]['value'] = combine(tmp_data["conversations"][-1]['value'],action_id_to_str(last_action))
-                        tmp_data["conversations"][-2]['image'][-1] = episode_image_list[i+1]
-                    else:
-                        count = tmp_data["conversations"][-1]['value'].count(',')
-                        if count < 2:
-                            tmp_data["conversations"][-1]['value'] += ', ' + action_id_to_str(actions[i])
+                            count = tmp_data["conversations"][-1]['value'].count(',')
+                            if count < 2:
+                                tmp_data["conversations"][-1]['value'] += ', ' + action_id_to_str(actions[i])
+                                pending_rgb_list.append(episode_image_list[i])
+                            else:
+                                # tmp_data['idm_input'] = [tmp_data["conversations"][0]['image'][-1], episode_image_list[i]]
+                                data2save.append(copy.deepcopy(tmp_data))
+                                tmp_data["action_history"].append(tmp_data["conversations"][1]['value'])
+                                while len(pending_rgb_list)!= 0:
+                                    item = pending_rgb_list.pop(0)
+                                    tmp_data["conversations"][0]['image'].append(item)
+                                tmp_data["conversations"][0]['image'].append(episode_image_list[i])
+                                # while len(tmp_data["conversations"][0]['image']) > max_images:
+                                #     tmp_data["conversations"][0]['image'] = tmp_data["conversations"][0]['image'][1:]
+                                tmp_data["conversations"][1]['value'] = action_id_to_str(actions[i])
+                                # assert len(conversation["action_history"]) == len(conversation["conversations"][0]['image']) - 1
+                        last_action = actions[i]
+                    # tmp_data['idm_input'] = [tmp_data["conversations"][0]['image'][-1], episode_image_list[i+1]]
+                    data2save.append(copy.deepcopy(tmp_data))
+                elif task_type == "idm":
+                    formated_instruction = prompt_template
+                    tmp_data["conversations"].append({"from": "user", "value": formated_instruction,"image":[episode_image_list[0], episode_image_list[1]]})
+                    tmp_data["conversations"].append({"from": "assistant", "value": action_id_to_str(actions[0])}) 
+                    last_action = actions[0]
+                    for i in range(1, len(actions)):
+                        prob = random.random()
+                        if prob <= 0.7 and actions[i] == last_action and combine(tmp_data["conversations"][-1]['value'],action_id_to_str(last_action)) is not None:
+                            tmp_data["conversations"][-1]['value'] = combine(tmp_data["conversations"][-1]['value'],action_id_to_str(last_action))
                             tmp_data["conversations"][-2]['image'][-1] = episode_image_list[i+1]
                         else:
-                            data2save.append(copy.deepcopy(tmp_data))
-                            tmp_data["action_history"].append(tmp_data["conversations"][1]['value'])
-                            tmp_data["conversations"][0]['image'] = [episode_image_list[i],episode_image_list[i+1]]
-                            tmp_data["conversations"][1]['value'] = action_id_to_str(actions[i])
-                            # assert len(conversation["action_history"]) == len(conversation["conversations"][0]['image']) - 1
-                    last_action = actions[i]
-                if tmp_data["conversations"][1]['value'] != 'stop':
-                    data2save.append(copy.deepcopy(tmp_data))
+                            count = tmp_data["conversations"][-1]['value'].count(',')
+                            if count < 2:
+                                tmp_data["conversations"][-1]['value'] += ', ' + action_id_to_str(actions[i])
+                                tmp_data["conversations"][-2]['image'][-1] = episode_image_list[i+1]
+                            else:
+                                data2save.append(copy.deepcopy(tmp_data))
+                                tmp_data["action_history"].append(tmp_data["conversations"][1]['value'])
+                                tmp_data["conversations"][0]['image'] = [episode_image_list[i],episode_image_list[i+1]]
+                                tmp_data["conversations"][1]['value'] = action_id_to_str(actions[i])
+                                # assert len(conversation["action_history"]) == len(conversation["conversations"][0]['image']) - 1
+                        last_action = actions[i]
+                    if tmp_data["conversations"][1]['value'] != 'stop':
+                        data2save.append(copy.deepcopy(tmp_data))
+    return data2save
 
     
 
